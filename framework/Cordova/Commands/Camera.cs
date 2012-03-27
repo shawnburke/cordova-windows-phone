@@ -129,7 +129,7 @@ namespace WP7CordovaClassLib.Cordova.Commands
             public void SetDefaultValues(StreamingContext context)
             {
                 PictureSourceType = CAMERA;
-                DestinationType = FILE_URI;
+                DestinationType = DATA_URL;
                 Quality = 80;
                 TargetHeight = -1;
                 TargetWidth = -1;
@@ -152,6 +152,8 @@ namespace WP7CordovaClassLib.Cordova.Commands
         /// </summary>
         CameraOptions cameraOptions;
 
+
+
         public void getPicture(string options)
         {
             try
@@ -165,10 +167,23 @@ namespace WP7CordovaClassLib.Cordova.Commands
                 return;
             }
 
-            //TODO Check if all the options are acceptable
+            // see if value is in range.
+            //
+            if (0 != (~(PHOTOLIBRARY | CAMERA | SAVEDPHOTOALBUM) & this.cameraOptions.PictureSourceType)) {
+                DispatchCommandResult(new PluginResult(PluginResult.Status.NO_RESULT));
+                return;
+            }
 
-
-            if (cameraOptions.PictureSourceType == CAMERA)
+            bool showCamera = (cameraOptions.PictureSourceType & CAMERA) == CAMERA;
+            
+            if (0 != (this.cameraOptions.PictureSourceType & SAVEDPHOTOALBUM) || this.cameraOptions.PictureSourceType == PHOTOLIBRARY)
+            {
+                photoChooserTask = new PhotoChooserTask();
+                photoChooserTask.ShowCamera = showCamera;
+                photoChooserTask.Completed += onTaskCompleted;
+                photoChooserTask.Show();
+            }
+            else if (showCamera)
             {
                 cameraTask = new CameraCaptureTask();
                 cameraTask.Completed += onTaskCompleted;
@@ -176,18 +191,7 @@ namespace WP7CordovaClassLib.Cordova.Commands
             }
             else
             {
-                if ((cameraOptions.PictureSourceType == PHOTOLIBRARY) || (cameraOptions.PictureSourceType == SAVEDPHOTOALBUM))
-                {
-                    photoChooserTask = new PhotoChooserTask();
-                    photoChooserTask.Completed += onTaskCompleted;
-                    photoChooserTask.Show();
-                }
-                else
-                {
-                    DispatchCommandResult(new PluginResult(PluginResult.Status.NO_RESULT));
-                }
             }
-
         }
 
         public void onTaskCompleted(object sender, PhotoResult e)
@@ -285,14 +289,30 @@ namespace WP7CordovaClassLib.Cordova.Commands
                 using (var stream = isoFile.CreateFile(filePath))
                 {
                     // resize image if Height and Width defined via options 
-                    if (cameraOptions.TargetHeight > 0 && cameraOptions.TargetWidth > 0)
-                    {
-                        image.SaveJpeg(stream, cameraOptions.TargetWidth, cameraOptions.TargetHeight, 0, cameraOptions.Quality);
-                    }
-                    else
-                    {
-                        image.SaveJpeg(stream, image.PixelWidth, image.PixelHeight, 0, cameraOptions.Quality);
-                    }
+                   
+                        // figure out the aspect ratio
+                        //
+                     
+                        Size imageSize = new Size(image.PixelWidth, image.PixelHeight);
+
+                        if (cameraOptions.TargetWidth > 0 && cameraOptions.TargetHeight > 0)
+                        {
+                            double ratio = (double)image.PixelWidth / (double)image.PixelHeight;
+
+                            if (cameraOptions.TargetWidth < imageSize.Width)
+                            {
+                                imageSize.Width = cameraOptions.TargetWidth;
+                                imageSize.Height = imageSize.Width / ratio;
+                            }
+
+                            if (cameraOptions.TargetHeight < imageSize.Height)
+                            {
+                                imageSize.Height = cameraOptions.TargetHeight;
+                                imageSize.Width = imageSize.Height * ratio;
+                            }
+                        }
+
+                        image.SaveJpeg(stream, (int)imageSize.Width, (int)imageSize.Height, 0, cameraOptions.Quality);
                 }
 
                 return new Uri(filePath, UriKind.Relative).ToString();

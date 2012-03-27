@@ -115,19 +115,42 @@
 					}
 					else
 					{
-                        // x-wmapp1://app/www/page2.html
-                        // need to work some magic on the actual url/filepath
-		                var newUrl =  uri;
-                        if(newUrl.indexOf(":/") > -1)
-                        {
-                            newUrl = newUrl.split(":/")[1];
-                        }
+					    function getBasePath() {
+					        // get the current folder.
+					        //
+					        // x-wmapp1://app/www/foo/bar.htm
+					        //
+					        // looking for '/app/www/foo'
+					        var currentUri = document.URL;
 
-		                if(newUrl.lastIndexOf("/") === newUrl.length - 1)
-		                {
-		                    newUrl += "index.html"; // default page is index.html, when call is to a dir/ ( why not ...? )
-		                }
-                        this._url = newUrl;
+					        if (currentUri.indexOf(":/") > -1) {
+					            currentUri = currentUri.split(":/")[1];
+					        }
+					        var lastSlash = currentUri.lastIndexOf('/');
+
+					        if (lastSlash !== -1) {
+					            currentUri = currentUri.substring(0, lastSlash + 1);
+					        }
+					        return currentUri;
+					    }
+
+					    // x-wmapp1://app/www/page2.html
+					    // need to work some magic on the actual url/filepath
+					    var newUrl = uri;
+					    if (newUrl.indexOf(":/") > -1) {
+					        newUrl = newUrl.split(":/")[1];
+					    }
+					    else {
+					        // relative path.
+
+					        newUrl = getBasePath() + newUrl;
+					    }
+
+					    if (newUrl.lastIndexOf("/") === newUrl.length - 1) {
+					        newUrl += "index.html"; // default page is index.html, when call is to a dir/ ( why not ...? )
+					    }
+					    console.log(newUrl);
+					    this._url = newUrl;
 					}
 				},
 				statusText:"",
